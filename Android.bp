@@ -532,6 +532,7 @@ java_library {
     stem: "framework",
     apex_available: ["//apex_available:platform"],
     visibility: [
+        "//hardware/oplus:__subpackages__",
         "//frameworks/base:__subpackages__",
         "//packages/modules/NeuralNetworks:__subpackages__",
         // TODO(b/429127828): Clean this up along with RELEASE_TELEPHONY_MODULE

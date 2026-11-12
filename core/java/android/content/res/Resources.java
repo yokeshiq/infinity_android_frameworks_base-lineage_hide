@@ -2417,6 +2417,19 @@ public class Resources {
                          + "resources by identifier (e.g. `R.foo.bar`) than by name (e.g. "
                          + "`getIdentifier(\"bar\", \"foo\", null)`).")
     public int getIdentifier(String name, String defType, String defPackage) {
+        if (android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID) {
+            final String pkg = (defPackage != null) ? defPackage.toLowerCase() : "";
+            final String resName = (name != null) ? name.toLowerCase() : "";
+            if (pkg.contains("lineage") || resName.contains("lineage")) {
+                final String currentPkg = android.app.ActivityThread.currentPackageName();
+                if (currentPkg == null || (!currentPkg.startsWith("org.lineageos.")
+                        && !currentPkg.startsWith("com.android.launcher")
+                        && !"com.android.systemui".equals(currentPkg)
+                        && !"com.android.settings".equals(currentPkg))) {
+                    return 0; // 对三方应用伪装资源不存在
+                }
+            }
+        }
         return mResourcesImpl.getIdentifier(name, defType, defPackage);
     }
 

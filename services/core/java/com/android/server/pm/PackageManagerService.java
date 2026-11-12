@@ -3022,6 +3022,13 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
     }
 
     public boolean hasSystemFeature(String name, int version) {
+        // 仅对三方应用屏蔽 Lineage 特性，系统内部组件正常访问
+        if (Binder.getCallingUid() >= Process.FIRST_APPLICATION_UID && name != null) {
+            if (name.startsWith("org.lineageos.") || name.startsWith("lineageos.")) {
+                return false;
+            }
+        }
+
         // allow instant applications
         final FeatureInfo feat = mAvailableFeatures.get(name);
         if (feat == null) {
@@ -5785,6 +5792,12 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                     FeatureInfo.GL_ES_VERSION_UNDEFINED);
             res.add(fi);
 
+            // 仅对三方应用（UID >= 10000）过滤 Lineage 特性
+            if (Binder.getCallingUid() >= Process.FIRST_APPLICATION_UID) {
+                res.removeIf(feat -> feat.name != null &&
+                        (feat.name.startsWith("org.lineageos.") || feat.name.startsWith("lineageos.")));
+            }
+
             return new ParceledListSlice<>(res);
         }
 
@@ -5905,6 +5918,27 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
         @Override
         public boolean isProtectedBroadcast(String actionName) {
             if (actionName != null) {
+                final int callingUid = Binder.getCallingUid();
+                if (callingUid >= Process.FIRST_APPLICATION_UID
+                        && actionName.toLowerCase().contains("lineage")) {
+                    final String[] callingPackages = snapshotComputer().getPackagesForUid(callingUid);
+                    boolean isWhitelisted = false;
+                    if (callingPackages != null) {
+                        for (String pkg : callingPackages) {
+                            if ("com.android.systemui".equals(pkg)
+                                    || "com.android.launcher3".equals(pkg)
+                                    || "com.android.settings".equals(pkg)
+                                    || "com.android.shell".equals(pkg)
+                                    || pkg.startsWith("org.lineageos.")) {
+                                isWhitelisted = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!isWhitelisted) {
+                        return false;
+                    }
+                }
                 // TODO: remove these terrible hacks
                 if (actionName.startsWith("android.net.netmon.lingerExpired")
                         || actionName.startsWith("com.android.server.sip.SipWakeupTimer")

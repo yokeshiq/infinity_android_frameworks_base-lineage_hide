@@ -442,6 +442,22 @@ public final class AssetManager implements AutoCloseable {
     public @NonNull String[] getApkPaths() {
         synchronized (this) {
             if (mOpen) {
+                if (android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID) {
+                    final String currentPkg = android.app.ActivityThread.currentPackageName();
+                    if (currentPkg == null || (!currentPkg.startsWith("org.lineageos.")
+                            && !currentPkg.startsWith("com.android.launcher")
+                            && !"com.android.systemui".equals(currentPkg)
+                            && !"com.android.settings".equals(currentPkg))) {
+                        java.util.ArrayList<String> list = new java.util.ArrayList<>();
+                        for (int i = 0; i < mApkAssets.length; i++) {
+                            String p = mApkAssets[i].getAssetPath();
+                            if (p != null && !p.isEmpty() && !p.toLowerCase().contains("lineage")) {
+                                list.add(p);
+                            }
+                        }
+                        return list.toArray(new String[0]);
+                    }
+                }
                 String[] paths = new String[mApkAssets.length];
                 final int count = mApkAssets.length;
                 for (int i = 0; i < count; i++) {

@@ -339,6 +339,36 @@ final class ResolveIntentHelper {
             @PackageManager.ResolveInfoFlagsBits long flags, int userId,
             int filterCallingUid, int callingPid, boolean forSend) {
         if (!mUserManager.exists(userId)) return Collections.emptyList();
+
+        
+
+        // ==================== 【拦截 Lineage 专有广播 Action：带系统应用白名单】 ====================
+        if (filterCallingUid >= Process.FIRST_APPLICATION_UID && intent != null && intent.getAction() != null) {
+            final String action = intent.getAction().toLowerCase();
+            if (action.contains("lineage")) {
+                // 检查调用方包名白名单，避免误杀系统关键组件与桌面
+                final String[] callingPackages = computer.getPackagesForUid(filterCallingUid);
+                boolean isWhitelisted = false;
+                if (callingPackages != null) {
+                    for (String pkg : callingPackages) {
+                        if ("com.android.systemui".equals(pkg)
+                                || "com.android.launcher3".equals(pkg)
+                                || "com.android.settings".equals(pkg)
+                                || "com.android.shell".equals(pkg)
+                                || pkg.startsWith("org.lineageos.")) {
+                            isWhitelisted = true;
+                            break;
+                        }
+                    }
+                }
+                // 非白名单的第三方应用一律返回空列表，屏蔽特征 10
+                if (!isWhitelisted) {
+                    return Collections.emptyList();
+                }
+            }
+        }
+        // =========================================================================================
+
         // The identity used to filter the receiver components
         final int queryingUid = forSend ? Process.SYSTEM_UID : filterCallingUid;
         computer.enforceCrossUserPermission(queryingUid, userId,

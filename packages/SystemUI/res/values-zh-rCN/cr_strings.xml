@@ -180,7 +180,7 @@
     <string name="global_action_onthego">行走模式</string>
     <string name="onthego_dialog_title">行走模式</string>
     <string name="onthego_opacity_title">相机画面不透明度</string>
-    <string name="onthego_opacity_default">50%</string>
+    <string name="onthego_opacity_default" formatted="false">50%</string>
     <string name="onthego_restart_title">在相机开关时重启</string>
     <string name="onthego_restart_summary">当相机改变时快速重启预览</string>
     <string name="onthego_front_camera_title">前置摄像头</string>

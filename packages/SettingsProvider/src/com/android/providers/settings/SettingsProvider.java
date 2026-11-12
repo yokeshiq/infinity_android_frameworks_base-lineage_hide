@@ -19,6 +19,9 @@ package com.android.providers.settings;
 import static android.os.Process.ROOT_UID;
 import static android.os.Process.SHELL_UID;
 import static android.os.Process.SYSTEM_UID;
+import android.os.Binder;
+import android.os.Bundle;
+import android.os.Process;
 import static android.provider.DeviceConfig.SYNC_DISABLED_MODE_NONE;
 import static android.provider.DeviceConfig.SYNC_DISABLED_MODE_PERSISTENT;
 import static android.provider.DeviceConfig.SYNC_DISABLED_MODE_UNTIL_REBOOT;
@@ -470,6 +473,25 @@ public class SettingsProvider extends ContentProvider {
                 return Bundle.forPair(Settings.NameValueTable.VALUE, spoofed);
             }
         }
+
+        // ==================== 【拦截三方应用探测系统键名：放行核心组件】 ====================
+        final int callingUid = Binder.getCallingUid();
+        if (callingUid >= Process.FIRST_APPLICATION_UID && name != null) {
+            if (name.startsWith("lineage_") || name.startsWith("trust_") || name.startsWith("cm_")
+                    || name.startsWith("lineageos.") || name.startsWith("org.lineageos.")) {
+                String callingPkg = getCallingPackage();
+                boolean isWhitelisted = "com.android.systemui".equals(callingPkg)
+                        || "com.android.launcher3".equals(callingPkg)
+                        || "com.android.settings".equals(callingPkg)
+                        || "com.android.shell".equals(callingPkg)
+                        || (callingPkg != null && (callingPkg.startsWith("org.lineageos.")
+                                || callingPkg.startsWith("com.android.launcher")));
+                if (!isWhitelisted && method != null && method.startsWith("GET_")) {
+                    return Bundle.EMPTY; // 返回空 Bundle，Framework 层 getString 会直接解析为 null
+                }
+            }
+        }
+        // ==============================================================================
 
         switch (method) {
             case Settings.CALL_METHOD_GET_CONFIG -> {

@@ -508,8 +508,41 @@ public class PermissionManagerService extends IPermissionManager.Stub {
         return mPermissionManagerServiceImpl.getPermissionGroupInfo(groupName, flags);
     }
 
+    // ==================== 【系统应用白名单校验】 ====================
+    private boolean isSystemWhitelistedUid(int uid) {
+        if (uid < Process.FIRST_APPLICATION_UID) {
+            return true;
+        }
+        final String[] callingPackages = mContext.getPackageManager().getPackagesForUid(uid);
+        if (callingPackages != null) {
+            for (String pkg : callingPackages) {
+                if ("com.android.systemui".equals(pkg)
+                        || "com.android.launcher3".equals(pkg)
+                        || "com.android.settings".equals(pkg)
+                        || "com.android.shell".equals(pkg)
+                        || pkg.startsWith("org.lineageos.")
+                        || pkg.startsWith("com.android.launcher")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    // ===============================================================
+
     @Override
     public PermissionInfo getPermissionInfo(String permissionName, String packageName, int flags) {
+        // ==================== 【拦截三方应用探测 Lineage 专有权限（解决特征 6）】 ====================
+        final int callingUid = Binder.getCallingUid();
+        if (callingUid >= Process.FIRST_APPLICATION_UID && permissionName != null) {
+            if (permissionName.toLowerCase().contains("lineage")) {
+                if (!isSystemWhitelistedUid(callingUid)) {
+                    return null; // 非白名单三方应用伪装权限不存在（客户端抛出 NameNotFoundException）
+                }
+            }
+        }
+        // =========================================================================================
+
         return mPermissionManagerServiceImpl.getPermissionInfo(permissionName, flags, packageName);
     }
 

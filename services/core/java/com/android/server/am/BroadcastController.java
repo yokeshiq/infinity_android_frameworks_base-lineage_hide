@@ -1136,6 +1136,11 @@ class BroadcastController {
         // First line security check before anything else: stop non-system apps from
         // sending protected broadcasts.
         if (!isCallerSystem) {
+            if (action != null && action.toLowerCase().contains("lineage")) {
+                scheduleCanceledResultTo(resultToApp, resultTo, intent,
+                        userId, brOptions, callingUid, callerPackage);
+                return ActivityManager.BROADCAST_SUCCESS;
+            }
             if (isProtectedBroadcast && !"org.rising.intent.START_MINI_WINDOW".equals(action)) {
                 String msg = "Permission Denial: not allowed to send broadcast "
                         + action + " from pid="

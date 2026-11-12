@@ -137,6 +137,30 @@ public class SystemProperties {
     private static native void native_add_change_callback();
     private static native void native_report_sysprop_change();
 
+    
+
+    // ==================== 【拦截三方应用探测 Lineage 专有系统属性（特征 2 / 8）】 ====================
+    private static boolean isBlockedPropKey(String key) {
+        if (key == null || android.os.Process.myUid() < android.os.Process.FIRST_APPLICATION_UID) {
+            return false; // 系统特权进程直接放行
+        }
+        final String lower = key.toLowerCase();
+        if (lower.contains("lineage") || lower.startsWith("ro.lineage.")
+                || "ro.modversion".equals(lower) || lower.startsWith("ro.cm.")) {
+            final String pkg = android.app.ActivityThread.currentPackageName();
+            if (pkg != null && (pkg.startsWith("org.lineageos.")
+                    || pkg.startsWith("com.android.launcher")
+                    || "com.android.systemui".equals(pkg)
+                    || "com.android.settings".equals(pkg)
+                    || "com.android.shell".equals(pkg))) {
+                return false; // 白名单系统组件与自带应用放行
+            }
+            return true; // 对普通三方应用屏蔽
+        }
+        return false;
+    }
+    // ==============================================================================================
+
     /**
      * Get the String value for the given {@code key}.
      *
@@ -147,6 +171,9 @@ public class SystemProperties {
     @NonNull
     @SystemApi
     public static String get(@NonNull String key) {
+        if (isBlockedPropKey(key)) {
+            return "";
+        }
         if (TRACK_KEY_ACCESS) onKeyAccess(key);
         return native_get(key);
     }
@@ -163,6 +190,9 @@ public class SystemProperties {
     @NonNull
     @SystemApi
     public static String get(@NonNull String key, @Nullable String def) {
+        if (isBlockedPropKey(key)) {
+            return def != null ? def : "";
+        }
         if (TRACK_KEY_ACCESS) onKeyAccess(key);
         return native_get(key, def);
     }
@@ -178,6 +208,9 @@ public class SystemProperties {
      */
     @SystemApi
     public static int getInt(@NonNull String key, int def) {
+        if (isBlockedPropKey(key)) {
+            return def;
+        }
         if (TRACK_KEY_ACCESS) onKeyAccess(key);
         return native_get_int(key, def);
     }
@@ -193,6 +226,9 @@ public class SystemProperties {
      */
     @SystemApi
     public static long getLong(@NonNull String key, long def) {
+        if (isBlockedPropKey(key)) {
+            return def;
+        }
         if (TRACK_KEY_ACCESS) onKeyAccess(key);
         return native_get_long(key, def);
     }
@@ -213,6 +249,9 @@ public class SystemProperties {
      */
     @SystemApi
     public static boolean getBoolean(@NonNull String key, boolean def) {
+        if (isBlockedPropKey(key)) {
+            return def;
+        }
         if (TRACK_KEY_ACCESS) onKeyAccess(key);
         return native_get_boolean(key, def);
     }

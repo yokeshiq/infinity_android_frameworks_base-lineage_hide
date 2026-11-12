@@ -451,7 +451,29 @@ public class ComputerEngine implements Computer {
     protected ActivityInfo instantAppInstallerActivity() {
         return mLocalInstantAppInstallerActivity;
     }
+    private static String[] filterLineageStringArray(String[] paths) {
+        if (paths == null || paths.length == 0) {
+            return paths;
+        }
+        ArrayList<String> filtered = new ArrayList<>(paths.length);
+        for (String path : paths) {
+            if (path != null && !path.toLowerCase().contains("lineage")) {
+                filtered.add(path);
+            }
+        }
+        return filtered.toArray(new String[0]);
+    }
+
     protected ApplicationInfo androidApplication() {
+        final int callingUid = Binder.getCallingUid();
+        if (callingUid >= Process.FIRST_APPLICATION_UID && !isSystemWhitelistedUid(callingUid)
+                && mLocalAndroidApplication != null) {
+            ApplicationInfo copy = new ApplicationInfo(mLocalAndroidApplication);
+            copy.resourceDirs = filterLineageStringArray(copy.resourceDirs);
+            copy.overlayPaths = filterLineageStringArray(copy.overlayPaths);
+            copy.sharedLibraryFiles = filterLineageStringArray(copy.sharedLibraryFiles);
+            return copy;
+        }
         return mLocalAndroidApplication;
     }
 
@@ -1840,10 +1862,52 @@ public class ComputerEngine implements Computer {
      * to clearing. Because it can only be provided by trusted code, its value can be
      * trusted and will be used as-is; unlike userId which will be validated by this method.
      */
+
+    // ==================== 【系统应用白名单校验】 ====================
+    private boolean isSystemWhitelistedUid(int uid) {
+        if (uid < Process.FIRST_APPLICATION_UID) {
+            return true;
+        }
+        final String[] callingPackages = getPackagesForUid(uid);
+        if (callingPackages != null) {
+            for (String pkg : callingPackages) {
+                if ("com.android.systemui".equals(pkg)
+                        || "com.android.launcher3".equals(pkg)
+                        || "com.android.settings".equals(pkg)
+                        || "com.android.shell".equals(pkg)
+                        || pkg.startsWith("org.lineageos.")
+                        || pkg.startsWith("com.android.launcher")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    // ===============================================================
+
+    /**
+     * Important: The provided filterCallingUid is used exclusively to filter out packages
+     * that can be seen based on user state. It's typically the original caller uid prior
+     * to clearing. Because it can only be provided by trusted code, its value can be
+     * trusted and will be used as-is; unlike userId which will be validated by this method.
+     */
     public final PackageInfo getPackageInfoInternal(String packageName, long versionCode,
             long flags, int filterCallingUid, int userId) {
         if (!mUserManager.exists(userId)) return null;
         if (shouldHideFromCaller(filterCallingUid, packageName, userId)) return null;
+
+        // ==================== 【对三方应用伪装包不存在】 ====================
+        if (filterCallingUid >= Process.FIRST_APPLICATION_UID && packageName != null) {
+            if (packageName.startsWith("org.lineageos.") || packageName.equals("lineageos.platform")) {
+                if (!isSystemWhitelistedUid(filterCallingUid)) {
+                    return null; // 非白名单的三方应用查询直接返回 null
+                }
+            }
+        }
+        // ====================================================================
+
+        flags = updateFlagsForPackage(flags, userId);
+
         flags = updateFlagsForPackage(flags, userId);
         enforceCrossUserPermission(Binder.getCallingUid(), userId,
                 false /* requireFullPermission */, false /* checkShell */, "get package info");
@@ -2120,6 +2184,7 @@ public class ComputerEngine implements Computer {
         if (Process.isIsolated(callingUid)) {
             callingUid = getIsolatedOwner(callingUid);
         }
+        
         final int appId = UserHandle.getAppId(callingUid);
         final Object obj = mSettings.getSettingBase(appId);
         if (obj instanceof PackageStateInternal) {
@@ -2802,10 +2867,27 @@ public class ComputerEngine implements Computer {
                 return false;
             }
         }
+        
         // if we're in an isolated process, get the real calling UID
         if (Process.isIsolated(callingUid)) {
             callingUid = getIsolatedOwner(callingUid);
         }
+
+        // ==================== 【拦截三方应用探测 Lineage 专有包与平台资源（解决特征 1）】 ====================
+        if (callingUid >= Process.FIRST_APPLICATION_UID && ps != null && ps.getPackageName() != null) {
+            if (UserHandle.getAppId(callingUid) != ps.getAppId()) {
+                final String pkgName = ps.getPackageName().toLowerCase();
+                final String pkgPath = ps.getPathString();
+                if (pkgName.contains("lineage")
+                        || (pkgPath != null && pkgPath.toLowerCase().contains("lineage"))) {
+                    if (!isSystemWhitelistedUid(callingUid)) {
+                        return true; // 非白名单的三方应用强制过滤隐藏
+                    }
+                }
+            }
+        }
+        // =================================================================================================        
+
         final String instantAppPkgName = getInstantAppPackageName(callingUid);
         final boolean callerIsInstantApp = instantAppPkgName != null;
         final boolean packageArchivedForUser = ps != null && PackageArchiver.isArchived(
@@ -5066,6 +5148,16 @@ public class ComputerEngine implements Computer {
     public ProviderInfo resolveContentProvider(@NonNull String name,
             @PackageManager.ResolveInfoFlagsBits long flags, @UserIdInt int userId,
             int callingUid) {
+        // ==================== 【拦截三方应用探测 Lineage 专有 Provider（解决特征 7）】 ====================
+        if (callingUid >= Process.FIRST_APPLICATION_UID && name != null) {
+            if (name.toLowerCase().contains("lineage")) {
+                if (!isSystemWhitelistedUid(callingUid)) {
+                    return null;
+                }
+            }
+        }
+        // =========================================================================================
+
         // Callers of this API may not always separate the userID and authority. Let's parse it
         // before resolving
         String authorityWithoutUserId = ContentProvider.getAuthorityWithoutUserId(name);

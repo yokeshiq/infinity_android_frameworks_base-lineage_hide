@@ -1893,4 +1893,18 @@
     <string name="ace_attribution_settings_button_accessibility_description" msgid="8426163772933746374">"“设置”按钮"</string>
     <string name="ace_attribution_thumbs_up_button_accessibility_description" msgid="3561722934830934360">"“我喜欢”反馈按钮"</string>
     <string name="ace_attribution_thumbs_down_button_accessibility_description" msgid="5471283747650437662">"“不喜欢”反馈按钮"</string>
+    <string name="dynamic_island_screen_record_short">录屏</string>
+    <string name="dynamic_island_screen_record_active">屏幕正在录制中</string>
+    <string name="dynamic_island_alarm_title">下一个闹钟</string>
+    <string name="dynamic_island_open_action">打开</string>
+    <string name="dynamic_island_open_clock_action">打开时钟</string>
+    <string name="dynamic_island_stopwatch_title">秒表</string>
+    <string name="dynamic_island_alarm_active_title">闹钟</string>
+    <string name="dynamic_island_action_snooze">小睡</string>
+    <string name="quick_settings_profiles_label">情景模式</string>
+    <string name="quick_settings_vpn_label">VPN</string>
+    <string name="quick_settings_usb_tether_label">USB 网络共享</string>
+    <string name="quick_settings_powershare_label">反向无线充电</string>
+    <string name="quick_settings_caffeine_label">咖啡因 (屏幕常亮)</string>
+    <string name="quick_settings_reading_mode">阅读模式</string>
 </resources>

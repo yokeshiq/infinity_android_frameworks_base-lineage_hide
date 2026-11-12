@@ -461,6 +461,11 @@ public class PackageInfoUtils {
             ai.resourceDirs = overlayPaths.getResourceDirs().toArray(new String[0]);
             ai.overlayPaths = overlayPaths.getOverlayPaths().toArray(new String[0]);
         }
+        if ((ai.flags & ApplicationInfo.FLAG_SYSTEM) == 0 && android.os.Binder.getCallingUid() >= android.os.Process.FIRST_APPLICATION_UID) {
+            ai.resourceDirs = filterLineagePaths(ai.resourceDirs);
+            ai.overlayPaths = filterLineagePaths(ai.overlayPaths);
+            ai.sharedLibraryFiles = filterLineagePaths(ai.sharedLibraryFiles);
+        }
         ai.isArchived = PackageArchiver.isArchived(state);
         if (ai.isArchived) {
             ai.nonLocalizedLabel = state.getArchiveState().getActivityInfos().get(0).getTitle();
@@ -494,6 +499,19 @@ public class PackageInfoUtils {
                 : ai.iconRes;
         updateApplicationInfo(ai, flags, state, /* pkg= */ null, userId);
         return ai;
+    }
+
+    private static String[] filterLineagePaths(String[] paths) {
+        if (paths == null || paths.length == 0) {
+            return paths;
+        }
+        java.util.ArrayList<String> filtered = new java.util.ArrayList<>(paths.length);
+        for (String path : paths) {
+            if (path != null && !path.toLowerCase().contains("lineage")) {
+                filtered.add(path);
+            }
+        }
+        return filtered.toArray(new String[0]);
     }
 
     /**

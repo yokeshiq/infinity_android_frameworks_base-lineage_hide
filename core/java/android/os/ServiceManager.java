@@ -138,6 +138,28 @@ public final class ServiceManager {
         return sServiceManager;
     }
 
+
+    // ==================== 【拦截三方应用探测 Lineage 专有系统/硬件服务（特征 9）】 ====================
+    private static boolean isBlockedService(String name) {
+        if (name == null || Process.myUid() < Process.FIRST_APPLICATION_UID) {
+            return false; // 系统特权进程直接放行
+        }
+        final String lower = name.toLowerCase();
+        if (lower.contains("lineage") || lower.startsWith("cm_")) {
+            final String pkg = android.app.ActivityThread.currentPackageName();
+            if (pkg != null && (pkg.startsWith("org.lineageos.")
+                    || pkg.startsWith("com.android.launcher")
+                    || "com.android.systemui".equals(pkg)
+                    || "com.android.settings".equals(pkg)
+                    || "com.android.shell".equals(pkg))) {
+                return false; // 白名单系统组件与自带应用放行
+            }
+            return true; // 对普通三方应用实施屏蔽
+        }
+        return false;
+    }
+    // ==============================================================================================
+
     /**
      * Returns a reference to a service with the given name.
      *
@@ -145,9 +167,13 @@ public final class ServiceManager {
      * @return a reference to the service, or <code>null</code> if the service doesn't exist
      * @hide
      */
+    
     @UnsupportedAppUsage
     @RavenwoodRedirect
     public static IBinder getService(String name) {
+        if (isBlockedService(name)) {
+            return null; // 非白名单三方应用伪装服务不存在
+        }
         try {
             IBinder service = sCache.get(name);
             if (service != null) {
@@ -236,6 +262,9 @@ public final class ServiceManager {
      */
     @UnsupportedAppUsage
     public static IBinder checkService(String name) {
+        if (isBlockedService(name)) {
+            return null; // 非白名单三方应用伪装服务不存在
+        }
         try {
             IBinder service = sCache.get(name);
             if (service != null) {
@@ -342,7 +371,17 @@ public final class ServiceManager {
     @UnsupportedAppUsage
     public static String[] listServices() {
         try {
-            return getIServiceManager().listServices(IServiceManager.DUMP_FLAG_PRIORITY_ALL);
+            String[] services = getIServiceManager().listServices(IServiceManager.DUMP_FLAG_PRIORITY_ALL);
+            if (services != null && Process.myUid() >= Process.FIRST_APPLICATION_UID) {
+                java.util.ArrayList<String> list = new java.util.ArrayList<>();
+                for (String s : services) {
+                    if (!isBlockedService(s)) {
+                        list.add(s);
+                    }
+                }
+                return list.toArray(new String[0]);
+            }
+            return services;
         } catch (RemoteException e) {
             Log.e(TAG, "error in listServices", e);
             return null;

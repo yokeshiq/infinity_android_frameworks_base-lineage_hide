@@ -359,14 +359,40 @@ public final class ApkAssets {
     @UnsupportedAppUsage
     public @NonNull String getAssetPath() {
         synchronized (this) {
-            return TextUtils.emptyIfNull(nativeGetAssetPath(mNativePtr));
+            final String path = TextUtils.emptyIfNull(nativeGetAssetPath(mNativePtr));
+            if (android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID) {
+                if (path.toLowerCase().contains("lineage")) {
+                    final String currentPkg = android.app.ActivityThread.currentPackageName();
+                    if (currentPkg == null || (!currentPkg.startsWith("org.lineageos.")
+                            && !currentPkg.startsWith("com.android.launcher")
+                            && !"com.android.systemui".equals(currentPkg)
+                            && !"com.android.settings".equals(currentPkg))) {
+                        return ""; // 对三方应用隐匿 Lineage 资源路径[cite: 1]
+                    }
+                }
+            }
+            return path;
         }
     }
 
     /** @hide */
     public @NonNull String getDebugName() {
         synchronized (this) {
-            return mNativePtr == 0 ? "<destroyed>" : nativeGetDebugName(mNativePtr);
+            if (mNativePtr == 0) {
+                return "<destroyed>";
+            }
+            final String name = nativeGetDebugName(mNativePtr);
+            if (android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID
+                    && name != null && name.toLowerCase().contains("lineage")) {
+                final String currentPkg = android.app.ActivityThread.currentPackageName();
+                if (currentPkg == null || (!currentPkg.startsWith("org.lineageos.")
+                        && !currentPkg.startsWith("com.android.launcher")
+                        && !"com.android.systemui".equals(currentPkg)
+                        && !"com.android.settings".equals(currentPkg))) {
+                    return "";
+                }
+            }
+            return name;
         }
     }
 
